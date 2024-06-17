@@ -12,9 +12,17 @@ import {
   ImageBackground,
   Image,
 } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, navigation } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, deleteDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  onSnapshot,
+  deleteDoc,
+} from "firebase/firestore";
 import appFirebase from "./firebaseConfig";
 
 const Stack = createStackNavigator();
@@ -29,30 +37,40 @@ const App = () => {
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    const unsubscribeProducts = onSnapshot(collection(db, "productos"), (snapshot) => {
-      const productList = [];
-      snapshot.forEach((doc) => {
-        productList.push({ id: doc.id, ...doc.data() });
-      });
-      setProducts(productList);
-    });
+    const unsubscribeProducts = onSnapshot(
+      collection(db, "productos"),
+      (snapshot) => {
+        const productsList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setProducts(productsList);
+      }
+    );
 
-    const unsubscribeProviders = onSnapshot(collection(db, "proveedores"), (snapshot) => {
-      const providerList = [];
-      snapshot.forEach((doc) => {
-        providerList.push({ id: doc.id, ...doc.data() });
-      });
-      setProviders(providerList);
-    });
+    const unsubscribeProviders = onSnapshot(
+      collection(db, "proveedores"),
+      (snapshot) => {
+        const providersList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setProviders(providersList);
+      }
+    );
 
-    const unsubscribeOrders = onSnapshot(collection(db, "pedidos"), (snapshot) => {
-      const orderList = [];
-      snapshot.forEach((doc) => {
-        orderList.push({ id: doc.id, ...doc.data() });
-      });
-      setOrders(orderList);
-    });
+    const unsubscribeOrders = onSnapshot(
+      collection(db, "pedidos"),
+      (snapshot) => {
+        const ordersList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setOrders(ordersList);
+      }
+    );
 
+    // Limpiar las suscripciones al desmontar el componente
     return () => {
       unsubscribeProducts();
       unsubscribeProviders();
@@ -78,36 +96,54 @@ const App = () => {
     }
   };
 
+  useEffect(() => {
+    console.log("Products state updated: ", products);
+  }, [products]);
+
   const handleAddProduct = async (product) => {
     try {
       const docRef = await addDoc(collection(db, "productos"), product);
-      setProducts((prevProducts) => [...prevProducts, { ...product, id: docRef.id }]);
+      const newProduct = { ...product, id: docRef.id };
+      setProducts((prevProducts) => {
+        console.log("Previous products: ", prevProducts);
+        // Verificar si el producto ya está en la lista antes de agregarlo basado en el nombre
+        const existingProduct = prevProducts.find(
+          (p) => p.nombre === product.nombre
+        );
+        if (!existingProduct) {
+          const updatedProducts = [...prevProducts, newProduct];
+          console.log("Updated products: ", updatedProducts);
+          return updatedProducts;
+        } else {
+          console.log("Producto ya existe: ", existingProduct);
+          return prevProducts; // No hacer cambios si el producto ya existe
+        }
+      });
     } catch (error) {
       console.error("Error adding product: ", error);
       Alert.alert("Error", "No se pudo agregar el producto");
     }
   };
 
-  const handleEditProduct = async (editedProduct) => {
+  const handleEditProduct = async (productId, updatedProduct) => {
     try {
-      const productRef = doc(db, "productos", editedProduct.id);
-      await updateDoc(productRef, editedProduct);
+      const productRef = doc(db, "productos", productId);
+      await updateDoc(productRef, updatedProduct);
       setProducts((prevProducts) =>
         prevProducts.map((product) =>
-          product.id === editedProduct.id ? editedProduct : product
+          product.id === productId ? { ...product, ...updatedProduct } : product
         )
       );
     } catch (error) {
-      console.error("Error editing product: ", error);
-      Alert.alert("Error", "No se pudo editar el producto");
+      console.error("Error updating product: ", error);
+      Alert.alert("Error", "No se pudo actualizar el producto");
     }
   };
-  
 
-  const handleDeleteProduct = async (id) => {
+  const handleDeleteProduct = async (id, navigation) => {
     try {
       await deleteDoc(doc(db, "productos", id));
-      setProducts((prevProducts) => prevProducts.filter((product) => product.id !== id));
+      navigation.navigate("ProductList");
     } catch (error) {
       console.error("Error deleting product: ", error);
       Alert.alert("Error", "No se pudo eliminar el producto");
@@ -117,48 +153,69 @@ const App = () => {
   const handleAddProvider = async (provider) => {
     try {
       const docRef = await addDoc(collection(db, "proveedores"), provider);
-      setProviders((prevProviders) => [...prevProviders, { ...provider, id: docRef.id }]);
+      const newProvider = { ...provider, id: docRef.id };
+      setProviders((prevProviders) => {
+        // Verificar si el proveedor ya está en la lista antes de agregarlo basado en el nombre
+        const existingProvider = prevProviders.find(
+          (p) => p.name === provider.name
+        );
+        if (!existingProvider) {
+          return [...prevProviders, newProvider];
+        } else {
+          console.log("Proveedor ya existe: ", existingProvider);
+          return prevProviders; // No hacer cambios si el proveedor ya existe
+        }
+      });
     } catch (error) {
       console.error("Error adding provider: ", error);
       Alert.alert("Error", "No se pudo agregar el proveedor");
     }
   };
 
-  const handleEditProvider = async (editedProvider) => {
+  const handleEditProvider = async (providerId, updatedProvider) => {
     try {
-      const providerRef = doc(db, "proveedores", editedProvider.id);
-      await updateDoc(providerRef, editedProvider);
+      const providerRef = doc(db, "proveedores", providerId);
+      await updateDoc(providerRef, updatedProvider);
       setProviders((prevProviders) =>
         prevProviders.map((provider) =>
-          provider.id === editedProvider.id ? editedProvider : provider
+          provider.id === providerId ? { ...provider, ...updatedProvider } : provider
         )
       );
     } catch (error) {
-      console.error("Error editing provider: ", error);
-      Alert.alert("Error", "No se pudo editar el proveedor");
+      console.error("Error updating provider: ", error);
+      Alert.alert("Error", "No se pudo actualizar el proveedor");
     }
   };
-
-  const handleDeleteProvider = async (id) => {
+  
+  const handleDeleteProvider = async (id, navigation) => {
     try {
       await deleteDoc(doc(db, "proveedores", id));
-      setProviders((prevProviders) => prevProviders.filter((provider) => provider.id !== id));
+      navigation.navigate("ProviderList");
     } catch (error) {
       console.error("Error deleting provider: ", error);
       Alert.alert("Error", "No se pudo eliminar el proveedor");
     }
   };
-  
 
   const handleAddOrder = async (order) => {
     try {
       const docRef = await addDoc(collection(db, "pedidos"), order);
-      setOrders((prevOrders) => [...prevOrders, { ...order, id: docRef.id }]);
+      const newOrder = { ...order, id: docRef.id };
+      setOrders((prevOrders) => {
+        // Verificar si el pedido ya está en la lista antes de agregarlo basado en el nombre
+        const existingOrder = prevOrders.find((o) => o.nombre === order.nombre);
+        if (!existingOrder) {
+          return [...prevOrders, newOrder];
+        } else {
+          console.log("Pedido ya existe: ", existingOrder);
+          return prevOrders; // No hacer cambios si el pedido ya existe
+        }
+      });
     } catch (error) {
       console.error("Error adding order: ", error);
       Alert.alert("Error", "No se pudo agregar el pedido");
     }
-  };  
+  };
 
   const handleEditOrder = async (editedOrder) => {
     try {
@@ -175,7 +232,7 @@ const App = () => {
     }
   };
 
-  const handleDeleteOrder = async (id) => {
+  const handleDeleteOrder = async (id, navigation) => {
     try {
       await deleteDoc(doc(db, "pedidos", id));
       setOrders((prevOrders) => prevOrders.filter((order) => order.id !== id));
@@ -342,21 +399,20 @@ const App = () => {
                   renderItem={({ item }) => (
                     <View style={styles.listItem}>
                       <Text>
-                        {item.unit} - {item.name} - ${item.price}
+                        {item.unit} - {item.name} - ${item.price} -{" "}
+                        {item.category}
                       </Text>
                       <TouchableOpacity
                         style={styles.editButton}
                         onPress={() =>
-                          navigation.navigate("AddProductForm", {
-                            product: item,
-                          })
+                          navigation.navigate("AddProductForm", { product: item })
                         }
                       >
                         <Text>E</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.deleteButton}
-                        onPress={() => handleDeleteProduct(item.id)}
+                        onPress={() => handleDeleteProduct(item.id, navigation)}
                       >
                         <Text>X</Text>
                       </TouchableOpacity>
@@ -402,7 +458,7 @@ const App = () => {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.deleteButton}
-                        onPress={() => handleDeleteProvider(item.id)}
+                        onPress={() => handleDeleteProvider(item.id, navigation)}
                       >
                         <Text>X</Text>
                       </TouchableOpacity>
@@ -446,7 +502,7 @@ const App = () => {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.deleteButton}
-                        onPress={() => handleDeleteOrder(item.id)}
+                        onPress={() => handleDeleteOrder(item.id, navigation)}
                       >
                         <Text>X</Text>
                       </TouchableOpacity>
@@ -528,26 +584,35 @@ const App = () => {
   );
 };
 
-const AddProductForm = ({ route, product, onSave, navigation, onEdit }) => {
-  const order = route.params?.order;
+const AddProductForm = ({ route, onSave, navigation, onEdit }) => {
+  const { product } = route.params || {};
   const [name, setName] = useState(product ? product.name : "");
   const [unit, setUnit] = useState(product ? product.unit : "");
-  const [price, setPrice] = useState(product ? product.price : "");
+  const [price, setPrice] = useState(product ? product.price.toString() : "");
   const [category, setCategory] = useState(product ? product.category : "");
   const [hasIVA, setHasIVA] = useState(product ? product.hasIVA : false);
-  const [cost, setCost] = useState(product ? product.cost : "");
+  const [cost, setCost] = useState(product ? product.cost.toString() : "");
 
   useEffect(() => {
     calculateCost();
   }, [price, hasIVA]);
 
   const handleSubmit = () => {
+    const newProduct = {
+      name,
+      unit,
+      price: parseFloat(price),
+      category,
+      hasIVA,
+      cost: parseFloat(cost),
+    };
+
     if (product) {
-      onEdit({ ...product, name, price, unit });
+      onEdit(product.id, newProduct);
     } else {
-      onSave({ id: Date.now().toString(), name, price, unit });
+      onSave(newProduct);
     }
-    navigation.push("ProductList");
+    navigation.navigate("ProductList");
   };
 
   const calculateCost = () => {
@@ -560,12 +625,12 @@ const AddProductForm = ({ route, product, onSave, navigation, onEdit }) => {
     <View style={styles.container}>
       <Text>Nombre del Producto:</Text>
       <TextInput value={name} onChangeText={setName} style={styles.input} />
-      <Text>Unidad:</Text>
+      <Text>Unidad de medida:</Text>
       <TextInput value={unit} onChangeText={setUnit} style={styles.input} />
       <Text>Precio:</Text>
       <TextInput
         value={price}
-        onChangeText={setPrice}
+        onChangeText={(value) => setPrice(value.replace(/[^0-9.]/g, ""))}
         style={styles.input}
         keyboardType="numeric"
       />
@@ -583,6 +648,7 @@ const AddProductForm = ({ route, product, onSave, navigation, onEdit }) => {
   );
 };
 
+
 const AddProviderForm = ({ route, onSave, navigation, onEdit }) => {
   const provider = route.params?.provider;
   const [name, setName] = useState(provider ? provider.name : "");
@@ -592,12 +658,20 @@ const AddProviderForm = ({ route, onSave, navigation, onEdit }) => {
   const [email, setEmail] = useState(provider ? provider.email : "");
 
   const handleSubmit = () => {
+    const newProvider = {
+      name,
+      phone,
+      idNumber,
+      address,
+      email,
+    };
+
     if (provider) {
-      onEdit({ ...provider, name, phone, idNumber });
+      onEdit(provider.id, newProvider);
     } else {
-      onSave({ id: Date.now().toString(), name, phone, idNumber });
+      onSave(newProvider);
     }
-    navigation.push("ProviderList");
+    navigation.navigate("ProviderList");
   };
 
   return (
@@ -607,7 +681,7 @@ const AddProviderForm = ({ route, onSave, navigation, onEdit }) => {
       <Text>Teléfono:</Text>
       <TextInput
         value={phone}
-        onChangeText={setPhone}
+        onChangeText={(value) => setPhone(value.replace(/[^0-9]/g, ""))}
         style={styles.input}
         keyboardType="phone-pad"
       />
@@ -616,6 +690,7 @@ const AddProviderForm = ({ route, onSave, navigation, onEdit }) => {
         value={idNumber}
         onChangeText={setIdNumber}
         style={styles.input}
+        keyboardType="numeric"
       />
       <Text>Dirección:</Text>
       <TextInput
@@ -660,9 +735,29 @@ const AddOrderForm = ({ route, onSave, navigation, products, onEdit }) => {
 
   const handleSubmit = () => {
     if (order) {
-      onEdit({ ...order, productName, quantity, shipmentStatus, shippingLocation, deliveryLocation, price, hasIVA, cost });
+      onEdit({
+        ...order,
+        productName,
+        quantity,
+        shipmentStatus,
+        shippingLocation,
+        deliveryLocation,
+        price,
+        hasIVA,
+        cost,
+      });
     } else {
-      onSave({ id: Date.now().toString(), productName, quantity, shipmentStatus, shippingLocation, deliveryLocation, price, hasIVA, cost });
+      onSave({
+        id: Date.now().toString(),
+        productName,
+        quantity,
+        shipmentStatus,
+        shippingLocation,
+        deliveryLocation,
+        price,
+        hasIVA,
+        cost,
+      });
     }
     navigation.push("OrderList");
   };
@@ -764,7 +859,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   addButton: {
-    backgroundColor:"peru",
+    backgroundColor: "peru",
     padding: 15,
     borderRadius: 50,
     alignItems: "center",
