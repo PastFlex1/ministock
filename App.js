@@ -178,7 +178,9 @@ const App = () => {
       await updateDoc(providerRef, updatedProvider);
       setProviders((prevProviders) =>
         prevProviders.map((provider) =>
-          provider.id === providerId ? { ...provider, ...updatedProvider } : provider
+          provider.id === providerId
+            ? { ...provider, ...updatedProvider }
+            : provider
         )
       );
     } catch (error) {
@@ -186,7 +188,7 @@ const App = () => {
       Alert.alert("Error", "No se pudo actualizar el proveedor");
     }
   };
-  
+
   const handleDeleteProvider = async (id, navigation) => {
     try {
       await deleteDoc(doc(db, "proveedores", id));
@@ -272,6 +274,10 @@ const App = () => {
               style={styles.background}
               resizeMode="cover"
             >
+              <Image
+                source={{ uri: 'https://i.pinimg.com/564x/5d/a1/8a/5da18a6aa9770f8f8ba36882f2f5f6ad.jpg' }}
+                style={styles.logo}
+              />
               <View style={styles.container}>
                 <Text style={styles.title}>Inicio de Sesión</Text>
                 <TextInput
@@ -399,13 +405,15 @@ const App = () => {
                   renderItem={({ item }) => (
                     <View style={styles.listItem}>
                       <Text>
-                        {item.unit} - {item.name} - ${item.price} -{" "}
+                        {item.unit} - {item.name} - ${item.cost} -{" "}
                         {item.category}
                       </Text>
                       <TouchableOpacity
                         style={styles.editButton}
                         onPress={() =>
-                          navigation.navigate("AddProductForm", { product: item })
+                          navigation.navigate("AddProductForm", {
+                            product: item,
+                          })
                         }
                       >
                         <Text>E</Text>
@@ -458,7 +466,9 @@ const App = () => {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.deleteButton}
-                        onPress={() => handleDeleteProvider(item.id, navigation)}
+                        onPress={() =>
+                          handleDeleteProvider(item.id, navigation)
+                        }
                       >
                         <Text>X</Text>
                       </TouchableOpacity>
@@ -490,7 +500,8 @@ const App = () => {
                   renderItem={({ item }) => (
                     <View style={styles.listItem}>
                       <Text>
-                        {item.productName} - ${item.total}
+                        {item.productName} - ${item.cost} -{" "}
+                        {item.deliveryLocation}
                       </Text>
                       <TouchableOpacity
                         style={styles.editButton}
@@ -647,7 +658,6 @@ const AddProductForm = ({ route, onSave, navigation, onEdit }) => {
     </View>
   );
 };
-
 
 const AddProviderForm = ({ route, onSave, navigation, onEdit }) => {
   const provider = route.params?.provider;
@@ -891,6 +901,13 @@ const styles = StyleSheet.create({
     backgroundColor: "coral",
     marginLeft: 10,
     borderRadius: 5,
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    alignSelf: "center",
+    marginTop: 50,
+    borderRadius: 40
   },
 });
 
